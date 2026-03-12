@@ -21,7 +21,9 @@ import {
   X,
   HelpCircle,
   ChevronDown,
-  WifiOff
+  WifiOff,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Section } from './components/Section';
@@ -35,6 +37,25 @@ export default function App() {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('theme');
+      if (saved) return saved === 'dark';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
+
+  // Theme Management
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
 
   // Online/Offline Status
   useEffect(() => {
@@ -50,30 +71,45 @@ export default function App() {
     };
   }, []);
 
-  // Scroll Spy & Header State
+  // Header State & Scroll Progress (Optimized)
   useEffect(() => {
     const handleScroll = () => {
       const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
-      const progress = (window.scrollY / totalHeight) * 100;
+      const progress = totalHeight > 0 ? (window.scrollY / totalHeight) * 100 : 0;
       setScrollProgress(progress);
       
       setScrolled(window.scrollY > 20);
       setShowBackToTop(window.scrollY > 500);
-      
-      const sections = NAV_ITEMS.map(item => document.getElementById(item.id));
-      const scrollPosition = window.scrollY + 250;
-
-      for (let i = sections.length - 1; i >= 0; i--) {
-        const section = sections[i];
-        if (section && section.offsetTop <= scrollPosition) {
-          setActiveSection(NAV_ITEMS[i].id);
-          break;
-        }
-      }
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Intersection Observer for Scroll Spy (Smoother & More Responsive)
+  useEffect(() => {
+    const observerOptions = {
+      root: null,
+      rootMargin: '-20% 0px -70% 0px', // Trigger when section is in the upper part of the screen
+      threshold: 0
+    };
+
+    const observerCallback = (entries: IntersectionObserverEntry[]) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          setActiveSection(entry.target.id);
+        }
+      });
+    };
+
+    const observer = new IntersectionObserver(observerCallback, observerOptions);
+
+    NAV_ITEMS.forEach((item) => {
+      const element = document.getElementById(item.id);
+      if (element) observer.observe(element);
+    });
+
+    return () => observer.disconnect();
   }, []);
 
   const scrollTo = useCallback((id: string) => {
@@ -94,7 +130,9 @@ export default function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#FDFDFD] font-sans text-zinc-900 selection:bg-brand-100 selection:text-brand-900 antialiased">
+    <div className={`min-h-screen font-sans selection:bg-brand-100 selection:text-brand-900 antialiased transition-colors duration-500 ${
+      isDarkMode ? 'bg-zinc-950 text-zinc-100' : 'bg-[#FDFDFD] text-zinc-900'
+    }`}>
       {/* Offline Indicator */}
       <AnimatePresence>
         {!isOnline && (
@@ -130,24 +168,28 @@ export default function App() {
       <nav 
         aria-label="Navegação Principal"
         className={`fixed top-0 w-full z-50 transition-all duration-500 ${
-          scrolled ? 'bg-white/90 backdrop-blur-2xl border-b border-zinc-200/50 py-3 sm:py-4' : 'bg-transparent py-4 sm:py-6'
+          scrolled 
+            ? (isDarkMode ? 'bg-zinc-950/90 border-zinc-800/50' : 'bg-white/90 border-zinc-200/50') + ' backdrop-blur-2xl border-b py-3 sm:py-4' 
+            : 'bg-transparent py-4 sm:py-6'
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
             <button 
-              className="flex items-center gap-3 group cursor-pointer focus-visible:ring-4 focus-visible:ring-brand-500/30 rounded-2xl outline-none" 
+              className="flex items-center gap-2 sm:gap-3 group cursor-pointer focus-visible:ring-4 focus-visible:ring-brand-500/30 rounded-2xl outline-none" 
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
               aria-label="Voltar ao topo da página"
             >
-              <div className="w-11 h-11 bg-brand-600 rounded-2xl flex items-center justify-center shadow-xl shadow-brand-200 group-hover:rotate-12 transition-all duration-500">
-                <Scale className="text-white w-6 h-6" />
+              <div className="w-9 h-9 sm:w-11 sm:h-11 bg-brand-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl shadow-brand-200 group-hover:rotate-12 transition-all duration-500">
+                <Scale className="text-white w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <span className="font-black text-2xl tracking-tighter">HABITAÇÃO<span className="text-brand-600">2026</span></span>
+              <span className="font-black text-xl sm:text-2xl tracking-tighter">HABITAÇÃO<span className="text-brand-600">2026</span></span>
             </button>
 
             {/* Desktop Nav */}
-            <div className="hidden md:flex items-center gap-2 bg-zinc-100/50 p-1.5 rounded-full border border-zinc-200/50 backdrop-blur-md">
+            <div className={`hidden md:flex items-center gap-2 p-1.5 rounded-full border backdrop-blur-md transition-colors duration-500 ${
+              isDarkMode ? 'bg-zinc-900/50 border-zinc-800/50' : 'bg-zinc-100/50 border-zinc-200/50'
+            }`}>
               {NAV_ITEMS.map((item) => (
                 <button
                   key={item.id}
@@ -155,8 +197,8 @@ export default function App() {
                   aria-current={activeSection === item.id ? 'page' : undefined}
                   className={`px-6 py-2.5 text-xs font-black uppercase tracking-widest rounded-full transition-all duration-500 outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
                     activeSection === item.id 
-                      ? 'bg-white text-brand-600 shadow-sm' 
-                      : 'text-zinc-400 hover:text-zinc-900'
+                      ? (isDarkMode ? 'bg-zinc-800 text-brand-400 shadow-sm' : 'bg-white text-brand-600 shadow-sm')
+                      : (isDarkMode ? 'text-zinc-500 hover:text-zinc-200' : 'text-zinc-400 hover:text-zinc-900')
                   }`}
                 >
                   {item.label}
@@ -164,12 +206,23 @@ export default function App() {
               ))}
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="hidden sm:block text-[10px] font-black tracking-[0.2em] uppercase bg-zinc-900 px-5 py-2 rounded-full text-white shadow-lg shadow-zinc-200">
-                Lei n.º 9-A/2026
-              </div>
+            <div className="flex items-center gap-2 sm:gap-4">
+              <button
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                className={`p-2.5 sm:p-3 rounded-2xl transition-all duration-500 border ${
+                  isDarkMode 
+                    ? 'bg-zinc-900 border-zinc-800 text-amber-400 hover:bg-zinc-800 shadow-lg shadow-black/20' 
+                    : 'bg-white border-zinc-200 text-brand-600 hover:bg-zinc-50 shadow-lg shadow-brand-100'
+                }`}
+                aria-label={isDarkMode ? "Ativar Modo Claro" : "Ativar Modo Escuro"}
+              >
+                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
+
               <button 
-                className="md:hidden p-3 text-zinc-600 hover:bg-zinc-100 rounded-2xl transition-all focus-visible:ring-2 focus-visible:ring-brand-500 outline-none"
+                className={`md:hidden p-2.5 sm:p-3 rounded-2xl transition-all focus-visible:ring-2 focus-visible:ring-brand-500 outline-none ${
+                  isDarkMode ? 'text-zinc-400 hover:bg-zinc-900' : 'text-zinc-600 hover:bg-zinc-100'
+                }`}
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 aria-label={isMobileMenuOpen ? "Fechar Menu" : "Abrir Menu"}
                 aria-expanded={isMobileMenuOpen}
@@ -201,9 +254,11 @@ export default function App() {
                 animate={{ x: 0 }}
                 exit={{ x: '-100%' }}
                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="fixed top-0 left-0 h-full w-[85%] max-w-xs bg-white z-[70] md:hidden shadow-2xl flex flex-col"
+                className={`fixed top-0 left-0 h-full w-[85%] max-w-xs z-[70] md:hidden shadow-2xl flex flex-col transition-colors duration-500 ${
+                  isDarkMode ? 'bg-zinc-950 border-r border-zinc-800' : 'bg-white'
+                }`}
               >
-                <div className="p-6 border-b border-zinc-100 flex justify-between items-center">
+                <div className={`p-6 border-b flex justify-between items-center ${isDarkMode ? 'border-zinc-800' : 'border-zinc-100'}`}>
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center shadow-lg shadow-brand-200">
                       <Scale className="text-white w-5 h-5" />
@@ -212,7 +267,9 @@ export default function App() {
                   </div>
                   <button 
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="p-2 text-zinc-400 hover:text-zinc-900 transition-colors focus-visible:ring-2 focus-visible:ring-brand-500 rounded-lg outline-none"
+                    className={`p-2 transition-colors focus-visible:ring-2 focus-visible:ring-brand-500 rounded-lg outline-none ${
+                      isDarkMode ? 'text-zinc-500 hover:text-zinc-200' : 'text-zinc-400 hover:text-zinc-900'
+                    }`}
                     aria-label="Fechar Menu"
                   >
                     <X className="w-6 h-6" />
@@ -226,18 +283,16 @@ export default function App() {
                       onClick={() => scrollTo(item.id)}
                       className={`w-full text-left px-6 py-4 rounded-2xl text-lg font-black transition-all outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
                         activeSection === item.id 
-                          ? 'bg-brand-50 text-brand-700 translate-x-2' 
-                          : 'text-zinc-600 hover:bg-zinc-50'
+                          ? (isDarkMode ? 'bg-zinc-900 text-brand-400 translate-x-2' : 'bg-brand-50 text-brand-700 translate-x-2')
+                          : (isDarkMode ? 'text-zinc-400 hover:bg-zinc-900' : 'text-zinc-600 hover:bg-zinc-50')
                       }`}
                     >
                       {item.label}
                     </button>
                   ))}
                 </div>
-                <div className="p-6 border-t border-zinc-100">
-                  <div className="text-[10px] font-black tracking-[0.2em] uppercase bg-zinc-900 px-5 py-3 rounded-xl text-white text-center shadow-lg shadow-zinc-200">
-                    Lei n.º 9-A/2026
-                  </div>
+                <div className={`p-6 border-t ${isDarkMode ? 'border-zinc-800' : 'border-zinc-100'}`}>
+                  {/* Lei badge removed */}
                 </div>
               </motion.div>
             </>
@@ -254,20 +309,26 @@ export default function App() {
             transition={{ duration: 0.8, ease: "easeOut" }}
             className="max-w-4xl mx-auto md:mx-0"
           >
-            <div className="inline-flex items-center gap-2.5 px-4 py-1.5 sm:px-5 sm:py-2 rounded-full bg-brand-50 text-brand-700 text-[9px] sm:text-[10px] font-black tracking-[0.2em] mb-6 sm:mb-10 border border-brand-100 shadow-sm">
+            <div className={`inline-flex items-center gap-2.5 px-4 py-1.5 sm:px-5 sm:py-2 rounded-full text-[9px] sm:text-[10px] font-black tracking-[0.2em] mb-6 sm:mb-10 border shadow-sm transition-colors duration-500 ${
+              isDarkMode ? 'bg-brand-900/30 text-brand-400 border-brand-800' : 'bg-brand-50 text-brand-700 border-brand-100'
+            }`}>
               <Calendar className="w-3.5 h-3.5 sm:w-4 h-4" />
               PUBLICADO EM 6 DE MARÇO DE 2026
             </div>
-            <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl 2xl:text-9xl font-bold text-zinc-900 tracking-tight mb-8 sm:mb-10 leading-[0.95] font-display">
+            <h1 className={`text-4xl sm:text-6xl md:text-7xl lg:text-8xl 2xl:text-9xl font-bold tracking-tight mb-8 sm:mb-10 leading-[0.95] font-display transition-colors duration-500 ${
+              isDarkMode ? 'text-white' : 'text-zinc-900'
+            }`}>
               Fomento de Oferta de <span className="text-gradient">Habitação</span>
             </h1>
-            <p className="text-lg sm:text-xl md:text-2xl text-zinc-600 mb-10 sm:mb-14 leading-relaxed font-medium max-w-3xl">
-              O Governo está autorizado a aprovar medidas de desagravamento fiscal focadas na <span className="text-brand-600 font-bold">Habitação Própria (HPP)</span> e na <span className="text-brand-600 font-bold">autoconstrução</span>.
+            <p className={`text-lg sm:text-xl md:text-2xl mb-10 sm:mb-14 leading-relaxed font-medium max-w-3xl transition-colors duration-500 ${
+              isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+            }`}>
+              O Governo está autorizado a aprovar medidas de desagravamento fiscal focadas na <span className="text-brand-600 dark:text-brand-400 font-bold">Habitação Própria (HPP)</span> e na <span className="text-brand-600 dark:text-brand-400 font-bold">autoconstrução</span>.
             </p>
             <div className="flex flex-col sm:flex-row justify-center md:justify-start gap-4 sm:gap-5">
               <button 
                 onClick={() => scrollTo('section-1')}
-                className="px-8 py-4 sm:px-10 sm:py-5 bg-brand-600 text-white font-black rounded-2xl sm:rounded-3xl hover:bg-brand-700 hover:scale-[1.05] active:scale-[0.95] transition-all duration-500 flex items-center justify-center gap-3 shadow-2xl shadow-brand-200"
+                className="px-8 py-4 sm:px-10 sm:py-5 bg-brand-600 text-white font-black rounded-2xl sm:rounded-3xl hover:bg-brand-700 hover:scale-[1.05] active:scale-[0.95] transition-all duration-500 flex items-center justify-center gap-3 shadow-2xl shadow-brand-200 dark:shadow-brand-900/20"
               >
                 Consultar Medidas <ArrowRight className="w-5 h-5 sm:w-6 h-6" />
               </button>
@@ -275,7 +336,11 @@ export default function App() {
                 href="https://diariodarepublica.pt/dr/detalhe/lei/9-a-2026-1068965400" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="px-8 py-4 sm:px-10 sm:py-5 bg-white border-2 sm:border-4 border-zinc-100 text-zinc-800 font-black rounded-2xl sm:rounded-3xl hover:bg-zinc-50 hover:border-zinc-200 transition-all duration-500 text-center"
+                className={`px-8 py-4 sm:px-10 sm:py-5 border-2 sm:border-4 font-black rounded-2xl sm:rounded-3xl transition-all duration-500 text-center ${
+                  isDarkMode 
+                    ? 'bg-zinc-900 border-zinc-800 text-zinc-100 hover:bg-zinc-800 hover:border-zinc-700' 
+                    : 'bg-white border-zinc-100 text-zinc-800 hover:bg-zinc-50 hover:border-zinc-200'
+                }`}
               >
                 Ler Diário da República
               </a>
@@ -288,13 +353,17 @@ export default function App() {
           animate={{ 
             x: isMobileMenuOpen ? 40 : 0,
             scale: isMobileMenuOpen ? 1.05 : 1,
-            opacity: isMobileMenuOpen ? 0.2 : 0.3
+            opacity: isMobileMenuOpen ? 0.2 : (isDarkMode ? 0.15 : 0.3)
           }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           className="absolute top-0 right-0 w-full h-full -z-0 pointer-events-none"
         >
-          <div className="absolute top-0 right-0 w-[40vw] h-[40vw] min-w-[300px] min-h-[300px] bg-brand-100 rounded-full blur-[100px] sm:blur-[150px] -mr-[10vw] -mt-[10vw]"></div>
-          <div className="absolute bottom-0 left-0 w-[30vw] h-[30vw] min-w-[250px] min-h-[250px] bg-blue-50 rounded-full blur-[80px] sm:blur-[120px] -ml-[5vw] -mb-[5vw]"></div>
+          <div className={`absolute top-0 right-0 w-[40vw] h-[40vw] min-w-[300px] min-h-[300px] rounded-full blur-[100px] sm:blur-[150px] -mr-[10vw] -mt-[10vw] transition-colors duration-1000 ${
+            isDarkMode ? 'bg-brand-500/20' : 'bg-brand-100'
+          }`}></div>
+          <div className={`absolute bottom-0 left-0 w-[30vw] h-[30vw] min-w-[250px] min-h-[250px] rounded-full blur-[80px] sm:blur-[120px] -ml-[5vw] -mb-[5vw] transition-colors duration-1000 ${
+            isDarkMode ? 'bg-blue-900/10' : 'bg-blue-50'
+          }`}></div>
         </motion.div>
       </header>
 
@@ -308,20 +377,26 @@ export default function App() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.15, duration: 0.6 }}
-              className={`p-8 sm:p-12 rounded-[2rem] sm:rounded-[3rem] relative overflow-hidden shadow-2xl shadow-zinc-200/60 group flex flex-col justify-between min-h-[280px] sm:min-h-[320px] ${
-                stat.theme === 'dark' ? 'bg-zinc-900 text-white' : 
-                stat.theme === 'brand' ? 'bg-brand-600 text-white' : 
-                'bg-white border border-zinc-100'
+              className={`p-8 sm:p-12 rounded-[2rem] sm:rounded-[3rem] relative overflow-hidden shadow-2xl group flex flex-col justify-between min-h-[280px] sm:min-h-[320px] transition-all duration-500 ${
+                stat.theme === 'dark' ? 'bg-zinc-900 text-white shadow-black/20' : 
+                stat.theme === 'brand' ? 'bg-brand-600 text-white shadow-brand-900/20' : 
+                (isDarkMode ? 'bg-zinc-900 border border-zinc-800 text-zinc-100 shadow-black/20' : 'bg-white border border-zinc-100 text-zinc-900 shadow-zinc-200/60')
               }`}
               role="article"
               aria-labelledby={`stat-title-${i}`}
             >
               <div className="relative z-10">
-                <p className={`text-[9px] sm:text-[10px] font-black uppercase tracking-[0.3em] mb-4 sm:mb-6 ${stat.theme === 'light' ? 'text-zinc-500' : 'opacity-60'}`}>{stat.label}</p>
+                <p className={`text-[9px] sm:text-[10px] font-black uppercase tracking-[0.3em] mb-4 sm:mb-6 ${
+                  stat.theme === 'light' ? (isDarkMode ? 'text-zinc-500' : 'text-zinc-500') : 'opacity-60'
+                }`}>{stat.label}</p>
                 <h3 id={`stat-title-${i}`} className="text-4xl sm:text-5xl font-black mb-4 sm:mb-6 tracking-tighter group-hover:scale-105 transition-transform origin-left duration-500">{stat.value}</h3>
-                <p className={`text-sm leading-relaxed font-medium ${stat.theme === 'light' ? 'text-zinc-600' : 'opacity-80'}`}>{stat.desc}</p>
+                <p className={`text-sm leading-relaxed font-medium ${
+                  stat.theme === 'light' ? (isDarkMode ? 'text-zinc-400' : 'text-zinc-600') : 'opacity-80'
+                }`}>{stat.desc}</p>
               </div>
-              <stat.icon aria-hidden="true" className={`absolute -bottom-6 -right-6 sm:-bottom-10 sm:-right-10 w-32 h-32 sm:w-48 sm:h-48 opacity-10 group-hover:rotate-12 transition-transform duration-700 ${stat.theme === 'light' ? 'text-zinc-900' : 'text-white'}`} />
+              <stat.icon aria-hidden="true" className={`absolute -bottom-6 -right-6 sm:-bottom-10 sm:-right-10 w-32 h-32 sm:w-48 sm:h-48 opacity-10 group-hover:rotate-12 transition-transform duration-700 ${
+                stat.theme === 'light' ? (isDarkMode ? 'text-white' : 'text-zinc-900') : 'text-white'
+              }`} />
             </motion.div>
           ))}
         </div>
@@ -338,7 +413,7 @@ export default function App() {
                   className={`flex items-center gap-4 w-full px-6 py-4 text-xs font-black uppercase tracking-[0.2em] rounded-2xl transition-all duration-500 ${
                     activeSection === item.id 
                       ? 'bg-brand-600 text-white shadow-2xl shadow-brand-200 translate-x-3' 
-                      : 'text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100'
+                      : (isDarkMode ? 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900' : 'text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100')
                   }`}
                 >
                   <div className={`w-2 h-2 rounded-full transition-all duration-500 ${activeSection === item.id ? 'bg-white scale-150' : 'bg-transparent'}`} />
@@ -349,7 +424,9 @@ export default function App() {
             
             <motion.div 
               whileHover={{ scale: 1.02 }}
-              className="p-8 bg-zinc-950 rounded-[2.5rem] text-white relative overflow-hidden shadow-2xl shadow-zinc-200"
+              className={`p-8 rounded-[2.5rem] text-white relative overflow-hidden shadow-2xl transition-all duration-500 ${
+                isDarkMode ? 'bg-zinc-900 shadow-black/20' : 'bg-zinc-950 shadow-zinc-200'
+              }`}
             >
               <div className="relative z-10">
                 <p className="text-[10px] font-black text-brand-400 uppercase tracking-[0.3em] mb-4">Autorização Legislativa</p>
@@ -366,7 +443,9 @@ export default function App() {
           <div className="lg:col-span-9 space-y-32">
             <Section id="section-0" title="Objeto e Objetivo" icon={Info}>
               <div className="prose prose-zinc max-w-none">
-                <p className="text-xl sm:text-2xl text-zinc-600 leading-relaxed mb-12 font-medium">
+                <p className={`text-xl sm:text-2xl leading-relaxed mb-12 font-medium transition-colors duration-500 ${
+                  isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+                }`}>
                   A Lei n.º 9-A/2026 autoriza o Governo a aprovar incentivos fiscais à construção, reabilitação, venda e arrendamento de imóveis habitacionais. Esta autorização legislativa visa combater a crise habitacional através do desagravamento fiscal em quatro códigos fundamentais:
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
@@ -374,12 +453,18 @@ export default function App() {
                     <motion.div 
                       key={i} 
                       whileHover={{ y: -10, scale: 1.05 }}
-                      className="p-6 sm:p-8 bg-white border border-zinc-100 rounded-[1.5rem] sm:rounded-[2rem] text-center shadow-sm hover:shadow-2xl transition-all duration-500"
+                      className={`p-6 sm:p-8 border rounded-[1.5rem] sm:rounded-[2rem] text-center shadow-sm hover:shadow-2xl transition-all duration-500 ${
+                        isDarkMode ? 'bg-zinc-900 border-zinc-800 hover:border-brand-900' : 'bg-white border-zinc-100 hover:border-brand-100'
+                      }`}
                     >
-                      <div className="w-12 h-12 bg-brand-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
-                        <FileText className="w-6 h-6 text-brand-600" />
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-5 transition-colors duration-500 ${
+                        isDarkMode ? 'bg-brand-900/30' : 'bg-brand-50'
+                      }`}>
+                        <FileText className={`w-6 h-6 transition-colors duration-500 ${isDarkMode ? 'text-brand-400' : 'text-brand-600'}`} />
                       </div>
-                      <span className="text-[10px] font-black text-zinc-900 uppercase tracking-[0.2em] leading-tight block">{code}</span>
+                      <span className={`text-[10px] font-black uppercase tracking-[0.2em] leading-tight block transition-colors duration-500 ${
+                        isDarkMode ? 'text-zinc-100' : 'text-zinc-900'
+                      }`}>{code}</span>
                     </motion.div>
                   ))}
                 </div>
@@ -417,61 +502,85 @@ export default function App() {
 
             <Section id="section-2" title="Foco: Autoconstrução e Reabilitação" icon={Key}>
               <div className="space-y-10">
-                <div className="bg-brand-50 p-8 sm:p-12 rounded-[2.5rem] sm:rounded-[3.5rem] border border-brand-100 shadow-sm relative overflow-hidden group">
+                <div className={`p-8 sm:p-12 rounded-[2.5rem] sm:rounded-[3.5rem] border shadow-sm relative overflow-hidden group transition-all duration-500 ${
+                  isDarkMode ? 'bg-zinc-900/50 border-zinc-800' : 'bg-brand-50 border-brand-100'
+                }`}>
                   <div className="relative z-10">
-                    <h3 className="text-2xl sm:text-3xl font-black mb-10 flex items-center gap-4 text-brand-900">
+                    <h3 className={`text-2xl sm:text-3xl font-black mb-10 flex items-center gap-4 transition-colors duration-500 ${
+                      isDarkMode ? 'text-brand-400' : 'text-brand-900'
+                    }`}>
                       <div className="w-4 h-12 bg-brand-600 rounded-full"></div>
                       Regime de Restituição Parcial do IVA
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10 sm:gap-16">
                       <div className="space-y-8">
-                        <h4 className="font-black text-brand-800 text-[10px] uppercase tracking-[0.3em]">Quem pode beneficiar?</h4>
-                        <ul className="space-y-5 text-brand-900/70">
+                        <h4 className={`font-black text-[10px] uppercase tracking-[0.3em] transition-colors duration-500 ${
+                          isDarkMode ? 'text-brand-500' : 'text-brand-800'
+                        }`}>Quem pode beneficiar?</h4>
+                        <ul className={`space-y-5 transition-colors duration-500 ${isDarkMode ? 'text-zinc-400' : 'text-brand-900/70'}`}>
                           <li className="flex items-start gap-4">
-                            <div className="w-7 h-7 bg-brand-200 rounded-xl flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                              <CheckCircle2 className="w-4 h-4 text-brand-700" />
+                            <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 mt-0.5 shadow-sm transition-colors duration-500 ${
+                              isDarkMode ? 'bg-brand-900/50' : 'bg-brand-200'
+                            }`}>
+                              <CheckCircle2 className={`w-4 h-4 transition-colors duration-500 ${isDarkMode ? 'text-brand-400' : 'text-brand-700'}`} />
                             </div>
                             <span className="font-bold text-base sm:text-lg">Pessoas singulares (indivíduos) que promovam a obra.</span>
                           </li>
                           <li className="flex items-start gap-4">
-                            <div className="w-7 h-7 bg-brand-200 rounded-xl flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                              <CheckCircle2 className="w-4 h-4 text-brand-700" />
+                            <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 mt-0.5 shadow-sm transition-colors duration-500 ${
+                              isDarkMode ? 'bg-brand-900/50' : 'bg-brand-200'
+                            }`}>
+                              <CheckCircle2 className={`w-4 h-4 transition-colors duration-500 ${isDarkMode ? 'text-brand-400' : 'text-brand-700'}`} />
                             </div>
                             <span className="font-bold text-base sm:text-lg">Imóveis destinados exclusivamente a Habitação Própria e Permanente.</span>
                           </li>
                         </ul>
                       </div>
                       <div className="space-y-8">
-                        <h4 className="font-black text-brand-800 text-[10px] uppercase tracking-[0.3em]">O que é abrangido?</h4>
-                        <ul className="space-y-5 text-brand-900/70">
+                        <h4 className={`font-black text-[10px] uppercase tracking-[0.3em] transition-colors duration-500 ${
+                          isDarkMode ? 'text-brand-500' : 'text-brand-800'
+                        }`}>O que é abrangido?</h4>
+                        <ul className={`space-y-5 transition-colors duration-500 ${isDarkMode ? 'text-zinc-400' : 'text-brand-900/70'}`}>
                           <li className="flex items-start gap-4">
-                            <div className="w-7 h-7 bg-brand-200 rounded-xl flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                              <CheckCircle2 className="w-4 h-4 text-brand-700" />
+                            <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 mt-0.5 shadow-sm transition-colors duration-500 ${
+                              isDarkMode ? 'bg-brand-900/50' : 'bg-brand-200'
+                            }`}>
+                              <CheckCircle2 className={`w-4 h-4 transition-colors duration-500 ${isDarkMode ? 'text-brand-400' : 'text-brand-700'}`} />
                             </div>
                             <span className="font-bold text-base sm:text-lg">Empreitadas de construção e reabilitação (contratos entre set/2025 e dez/2029).</span>
                           </li>
                           <li className="flex items-start gap-4">
-                            <div className="w-7 h-7 bg-brand-200 rounded-xl flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                              <CheckCircle2 className="w-4 h-4 text-brand-700" />
+                            <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 mt-0.5 shadow-sm transition-colors duration-500 ${
+                              isDarkMode ? 'bg-brand-900/50' : 'bg-brand-200'
+                            }`}>
+                              <CheckCircle2 className={`w-4 h-4 transition-colors duration-500 ${isDarkMode ? 'text-brand-400' : 'text-brand-700'}`} />
                             </div>
                             <span className="font-bold text-base sm:text-lg">Projetos de arquitetura, engenharia e estudos de especialidade (restituição de 50% do IVA).</span>
                           </li>
                         </ul>
                       </div>
                     </div>
-                    <div className="mt-16 p-6 sm:p-8 bg-white/50 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-brand-200/50 text-sm sm:text-base text-brand-900 font-bold italic shadow-sm">
+                    <div className={`mt-16 p-6 sm:p-8 backdrop-blur-xl rounded-2xl sm:rounded-3xl border text-sm sm:text-base font-bold italic shadow-sm transition-all duration-500 ${
+                      isDarkMode ? 'bg-zinc-950/50 border-zinc-800 text-zinc-300' : 'bg-white/50 border-brand-200/50 text-brand-900'
+                    }`}>
                       "A restituição visa compensar a diferença entre a taxa normal suportada e a taxa reduzida pretendida pelo Governo para incentivar a autoconstrução."
                     </div>
                   </div>
-                  <Building2 className="absolute -bottom-16 -right-16 w-48 h-48 sm:w-80 sm:h-80 text-brand-600/5 group-hover:rotate-6 transition-transform duration-1000" />
+                  <Building2 className={`absolute -bottom-16 -right-16 w-48 h-48 sm:w-80 sm:h-80 opacity-5 group-hover:rotate-6 transition-all duration-1000 ${
+                    isDarkMode ? 'text-brand-400' : 'text-brand-600'
+                  }`} />
                 </div>
 
-                <div className="bg-white p-8 sm:p-12 rounded-[2.5rem] sm:rounded-[3.5rem] border border-zinc-100 shadow-sm hover:shadow-2xl transition-all duration-700">
+                <div className={`p-8 sm:p-12 rounded-[2.5rem] sm:rounded-[3.5rem] border shadow-sm hover:shadow-2xl transition-all duration-700 ${
+                  isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'
+                }`}>
                   <h3 className="text-2xl sm:text-3xl font-black mb-8 flex items-center gap-4">
-                    <div className="w-4 h-12 bg-zinc-900 rounded-full"></div>
+                    <div className="w-4 h-12 bg-zinc-900 dark:bg-zinc-100 rounded-full"></div>
                     CIA: Investimento para Arrendamento
                   </h3>
-                  <p className="text-zinc-600 font-bold text-base sm:text-lg mb-12">
+                  <p className={`font-bold text-base sm:text-lg mb-12 transition-colors duration-500 ${
+                    isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+                  }`}>
                     Regime para investidores que coloquem imóveis no mercado de arrendamento habitacional:
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
@@ -480,10 +589,18 @@ export default function App() {
                       { label: 'IMI (8 Anos)', value: 'Isenção Total', desc: 'Período inicial de detenção' },
                       { label: 'IMI (Posterior)', value: 'Redução 50%', desc: 'Sobre a taxa em vigor' }
                     ].map((item, i) => (
-                      <div key={i} className="p-6 sm:p-8 bg-zinc-50 rounded-[2rem] sm:rounded-[2.5rem] border border-zinc-100 hover:border-brand-200 hover:bg-brand-50/30 transition-all duration-500 group">
-                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em] mb-4 group-hover:text-brand-600 transition-colors">{item.label}</p>
-                        <p className="text-xl sm:text-2xl font-black text-zinc-900 mb-2">{item.value}</p>
-                        <p className="text-xs sm:text-sm text-zinc-600 font-bold">{item.desc}</p>
+                      <div key={i} className={`p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] border transition-all duration-500 group ${
+                        isDarkMode ? 'bg-zinc-950 border-zinc-800 hover:border-brand-900 hover:bg-brand-900/10' : 'bg-zinc-50 border-zinc-100 hover:border-brand-200 hover:bg-brand-50/30'
+                      }`}>
+                        <p className={`text-[10px] font-black uppercase tracking-[0.3em] mb-4 group-hover:text-brand-600 transition-colors ${
+                          isDarkMode ? 'text-zinc-600' : 'text-zinc-400'
+                        }`}>{item.label}</p>
+                        <p className={`text-xl sm:text-2xl font-black mb-2 transition-colors duration-500 ${
+                          isDarkMode ? 'text-zinc-100' : 'text-zinc-900'
+                        }`}>{item.value}</p>
+                        <p className={`text-xs sm:text-sm font-bold transition-colors duration-500 ${
+                          isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                        }`}>{item.desc}</p>
                       </div>
                     ))}
                   </div>
@@ -492,14 +609,22 @@ export default function App() {
             </Section>
 
             <Section id="section-3" title="Limites e Condições" icon={ShieldCheck}>
-              <div className="bg-zinc-950 p-8 sm:p-16 rounded-[2.5rem] sm:rounded-[4rem] text-white shadow-3xl">
-                <p className="text-xl sm:text-2xl font-bold mb-12 sm:text-brand-400 uppercase tracking-widest font-display">Critérios de Elegibilidade:</p>
+              <div className={`p-8 sm:p-16 rounded-[2.5rem] sm:rounded-[4rem] shadow-3xl transition-all duration-500 ${
+                isDarkMode ? 'bg-zinc-900 shadow-black/40' : 'bg-zinc-950 shadow-zinc-200'
+              }`}>
+                <p className={`text-xl sm:text-2xl font-bold mb-12 uppercase tracking-widest font-display transition-colors duration-500 ${
+                  isDarkMode ? 'text-brand-400' : 'text-brand-400'
+                }`}>Critérios de Elegibilidade:</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-10 sm:gap-16">
                   {ELIGIBILITY_CRITERIA.map((item, i) => (
                     <div key={i} className="space-y-4 sm:space-y-6 group">
-                      <div className="text-4xl sm:text-6xl font-black text-white/5 group-hover:text-brand-500/20 transition-colors duration-700">{item.num}</div>
-                      <p className="font-bold text-xl sm:text-2xl tracking-tight font-display">{item.title}</p>
-                      <p className="text-sm sm:text-base text-zinc-600 leading-relaxed font-bold">{item.desc}</p>
+                      <div className={`text-4xl sm:text-6xl font-black transition-colors duration-700 ${
+                        isDarkMode ? 'text-white/5 group-hover:text-brand-500/20' : 'text-white/5 group-hover:text-brand-500/20'
+                      }`}>{item.num}</div>
+                      <p className="font-bold text-xl sm:text-2xl tracking-tight font-display text-white">{item.title}</p>
+                      <p className={`text-sm sm:text-base leading-relaxed font-bold transition-colors duration-500 ${
+                        isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                      }`}>{item.desc}</p>
                     </div>
                   ))}
                 </div>
@@ -519,7 +644,11 @@ export default function App() {
                     <motion.div 
                       key={i}
                       initial={false}
-                      className="border border-zinc-100 rounded-3xl overflow-hidden bg-white hover:border-brand-200 transition-colors"
+                      className={`border rounded-3xl overflow-hidden transition-all duration-500 ${
+                        isDarkMode 
+                          ? 'bg-zinc-900 border-zinc-800 hover:border-brand-900' 
+                          : 'bg-white border-zinc-100 hover:border-brand-200'
+                      }`}
                     >
                       <button 
                         className="w-full px-8 py-6 text-left flex justify-between items-center group outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
@@ -527,8 +656,12 @@ export default function App() {
                         aria-expanded={isOpen}
                         aria-controls={`faq-a-${i}`}
                       >
-                        <span className="font-bold text-lg text-zinc-800 group-hover:text-brand-600 transition-colors">{faq.q}</span>
-                        <ChevronDown className={`w-5 h-5 text-zinc-400 group-hover:text-brand-600 transition-all duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                        <span className={`font-bold text-lg transition-colors duration-500 ${
+                          isDarkMode ? 'text-zinc-200 group-hover:text-brand-400' : 'text-zinc-800 group-hover:text-brand-600'
+                        }`}>{faq.q}</span>
+                        <ChevronDown className={`w-5 h-5 transition-all duration-300 ${
+                          isDarkMode ? 'text-zinc-600 group-hover:text-brand-400' : 'text-zinc-400 group-hover:text-brand-600'
+                        } ${isOpen ? 'rotate-180' : ''}`} />
                       </button>
                       <AnimatePresence>
                         {isOpen && (
@@ -537,7 +670,9 @@ export default function App() {
                             initial={{ height: 0, opacity: 0 }}
                             animate={{ height: 'auto', opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
-                            className="px-8 pb-6 text-zinc-600 font-medium leading-relaxed overflow-hidden"
+                            className={`px-8 pb-6 font-medium leading-relaxed overflow-hidden transition-colors duration-500 ${
+                              isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+                            }`}
                           >
                             {faq.a}
                           </motion.div>
@@ -569,7 +704,9 @@ export default function App() {
       </AnimatePresence>
 
       {/* Footer */}
-      <footer className="bg-zinc-950 text-white pt-32 pb-16 border-t border-zinc-900">
+      <footer className={`pt-32 pb-16 border-t transition-colors duration-500 ${
+        isDarkMode ? 'bg-zinc-950 border-zinc-900 text-white' : 'bg-zinc-950 text-white border-zinc-900'
+      }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-16 mb-24">
             <div className="max-w-xl">
