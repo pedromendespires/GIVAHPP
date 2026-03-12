@@ -1,0 +1,60 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  
+  --color-brand-50: #EEF0FB;
+  --color-brand-100: #DCE1F7;
+  --color-brand-200: #B9C2EF;
+  --color-brand-300: #96A3E7;
+  --color-brand-400: #7384DF;
+  --color-brand-500: #4950BC;
+  --color-brand-600: #3D439D;
+  --color-brand-700: #31367E;
+  --color-brand-800: #25295E;
+  --color-brand-900: #191B3F;
+
+  --shadow-3xl: 0 35px 60px -15px rgba(73, 80, 188, 0.15);
+  --shadow-glass: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+  
+  --animate-float: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+  100% { transform: translateY(0px); }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply antialiased text-zinc-900 bg-[#FAFAFB];
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-zinc-50;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-brand-500 rounded-full border-2 border-zinc-50 hover:bg-brand-600 transition-colors;
+  }
+}
+
+.glass-card {
+  @apply bg-white/70 backdrop-blur-xl border border-white/20 shadow-glass;
+}
+
+.text-gradient {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-600 to-brand-400;
+}
